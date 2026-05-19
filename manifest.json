@@ -1,6 +1,6 @@
 {
   "name": "Archery Counter",
-  "short_name": "Archery",
+  "short_name": "C-Fleches",
   "start_url": "index.html",
   "display": "standalone",
   "background_color": "#1a1a1a",
