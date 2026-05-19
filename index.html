@@ -1,17 +1,19 @@
 <!DOCTYPE html>
 <html lang="fr">
-<meta name="theme-color" content="#1a1a1a">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="ArcheryLog">
-
-<link rel="apple-touch-icon" href="icon.png">
-<link rel="icon" type="image/png" href="icon.png">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Archery Tracker - Courbe de Progression</title>
+
+    <meta name="theme-color" content="#1a1a1a">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="ArcheryLog">
+    
+    <link rel="apple-touch-icon" href="icon.png">
+    <link rel="icon" type="image/png" href="icon.png">
+
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root { --bg: #1a1a1a; --card: #2d2d2d; --primary: #00d1b2; --text: #f5f5f5; }
@@ -33,121 +35,105 @@
     </style>
 </head>
 <body>
+    <div class="container">
+        <div class="counter-card">
+            <span style="font-size: 0.9rem; opacity: 0.7;">Flèches à ajouter</span>
+            <div class="total" id="currentCount">0</div>
+            <div class="btn-grid">
+                <button class="btn-main" onclick="updateCount(6)">+ 6 Flèches</button>
+                <button class="btn-main" onclick="updateCount(3)">+ 3 Flèches</button>
+                <button class="btn-sec" onclick="updateCount(-1)">- 1</button>
+                <button class="btn-sec" onclick="updateCount(1)">+ 1</button>
+                <button class="btn-save" onclick="saveToDailyTotal()">Enregistrer pour aujourd'hui</button>
+            </div>
+        </div>
 
-<div class="container">
-    <div class="counter-card">
-        <span style="font-size: 0.9rem; opacity: 0.7;">Flèches à ajouter</span>
-        <div class="total" id="currentCount">0</div>
-        <div class="btn-grid">
-            <button class="btn-main" onclick="updateCount(6)">+ 6 Flèches</button>
-            <button class="btn-main" onclick="updateCount(3)">+ 3 Flèches</button>
-            <button class="btn-sec" onclick="updateCount(-1)">- 1</button>
-            <button class="btn-sec" onclick="updateCount(1)">+ 1</button>
-            <button class="btn-save" onclick="saveToDailyTotal()">Enregistrer pour aujourd'hui</button>
+        <div class="chart-container">
+            <canvas id="progressionChart"></canvas>
+        </div>
+
+        <div class="history-section">
+            <h3 style="margin: 0 0 10px 0; font-size: 1rem;">Total par jour</h3>
+            <div id="historyList"></div>
         </div>
     </div>
 
-    <div class="chart-container">
-        <canvas id="progressionChart"></canvas>
-    </div>
+    <script>
+        // Ta logique JavaScript est excellente, garde-la telle quelle
+        let tempCount = 0;
+        let dailyHistory = JSON.parse(localStorage.getItem('archeryDailyHistory')) || [];
+        let chart;
 
-    <div class="history-section">
-        <h3 style="margin: 0 0 10px 0; font-size: 1rem;">Total par jour</h3>
-        <div id="historyList"></div>
-    </div>
-</div>
-
-<script>
-    let tempCount = 0; // Compteur temporaire (la volée en cours)
-    let dailyHistory = JSON.parse(localStorage.getItem('archeryDailyHistory')) || [];
-    let chart;
-
-    function updateCount(n) {
-        tempCount = Math.max(0, tempCount + n);
-        document.getElementById('currentCount').innerText = tempCount;
-        if (navigator.vibrate) navigator.vibrate(40);
-    }
-
-    function saveToDailyTotal() {
-        if (tempCount === 0) return;
-        
-        const today = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
-        
-        // Logique de cumul : on cherche si la date du jour existe déjà
-        const dayIndex = dailyHistory.findIndex(entry => entry.date === today);
-        
-        if (dayIndex !== -1) {
-            // Si le jour existe, on ajoute au total existant
-            dailyHistory[dayIndex].value += tempCount;
-        } else {
-            // Sinon on crée une nouvelle entrée
-            dailyHistory.unshift({ date: today, value: tempCount });
+        function updateCount(n) {
+            tempCount = Math.max(0, tempCount + n);
+            document.getElementById('currentCount').innerText = tempCount;
+            if (navigator.vibrate) navigator.vibrate(40);
         }
-        
-        // Sauvegarde et Reset
-        localStorage.setItem('archeryDailyHistory', JSON.stringify(dailyHistory));
-        tempCount = 0;
-        document.getElementById('currentCount').innerText = tempCount;
-        refreshUI();
-    }
 
-    function refreshUI() {
-        renderHistory();
-        updateChart();
-    }
-
-    function renderHistory() {
-        const list = document.getElementById('historyList');
-        list.innerHTML = dailyHistory.slice(0, 10).map(s => `
-            <div class="history-item">
-                <span>Le ${s.date}</span>
-                <strong>${s.value} flèches</strong>
-            </div>
-        `).join('');
-    }
-
-    function updateChart() {
-        // On prend les 7 derniers jours pour le graphique, et on les remet dans l'ordre chronologique (gauche à droite)
-        const displayData = [...dailyHistory].slice(0, 7).reverse();
-        const labels = displayData.map(d => d.date);
-        const values = displayData.map(d => d.value);
-
-        if (chart) chart.destroy();
-        const ctx = document.getElementById('progressionChart').getContext('2d');
-        
-        chart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: 'Flèches',
-                    data: values,
-                    borderColor: '#00d1b2',
-                    backgroundColor: 'rgba(0, 209, 178, 0.1)',
-                    borderWidth: 3,
-                    fill: true,
-                    tension: 0.3, // Courbe lisse
-                    pointBackgroundColor: '#00d1b2',
-                    pointRadius: 5
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: { beginAtZero: true, grid: { color: '#3d3d3d' }, ticks: { color: '#aaa' } },
-                    x: { grid: { display: false }, ticks: { color: '#aaa' } }
-                },
-                plugins: {
-                    legend: { display: false }
-                }
+        function saveToDailyTotal() {
+            if (tempCount === 0) return;
+            const today = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
+            const dayIndex = dailyHistory.findIndex(entry => entry.date === today);
+            if (dayIndex !== -1) {
+                dailyHistory[dayIndex].value += tempCount;
+            } else {
+                dailyHistory.unshift({ date: today, value: tempCount });
             }
-        });
-    }
+            localStorage.setItem('archeryDailyHistory', JSON.stringify(dailyHistory));
+            tempCount = 0;
+            document.getElementById('currentCount').innerText = tempCount;
+            refreshUI();
+        }
 
-    // Initialisation au chargement
-    refreshUI();
-</script>
+        function refreshUI() {
+            renderHistory();
+            updateChart();
+        }
 
+        function renderHistory() {
+            const list = document.getElementById('historyList');
+            list.innerHTML = dailyHistory.slice(0, 10).map(s => `
+                <div class="history-item">
+                    <span>Le ${s.date}</span>
+                    <strong>${s.value} flèches</strong>
+                </div>
+            `).join('');
+        }
+
+        function updateChart() {
+            const displayData = [...dailyHistory].slice(0, 7).reverse();
+            const labels = displayData.map(d => d.date);
+            const values = displayData.map(d => d.value);
+            if (chart) chart.destroy();
+            const ctx = document.getElementById('progressionChart').getContext('2d');
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Flèches',
+                        data: values,
+                        borderColor: '#00d1b2',
+                        backgroundColor: 'rgba(0, 209, 178, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.3,
+                        pointBackgroundColor: '#00d1b2',
+                        pointRadius: 5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: '#3d3d3d' }, ticks: { color: '#aaa' } },
+                        x: { grid: { display: false }, ticks: { color: '#aaa' } }
+                    },
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+        refreshUI();
+    </script>
 </body>
 </html>
